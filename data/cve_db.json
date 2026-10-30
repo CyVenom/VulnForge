@@ -1,0 +1,220 @@
+{
+  "_note": "Seed/demo CVE dataset for offline matching against nmap service/version banners. Thresholds are best-effort and NOT a substitute for a full NVD feed or live vulnerability intelligence — extend this file or wire core/cve_matcher.py to a live feed for production use.",
+  "_schema": {
+    "product_match": "list of lowercase substrings matched against the nmap 'product' field (and service name as fallback)",
+    "min_version": "affected if detected version >= min_version (null = no lower bound)",
+    "max_version": "affected if detected version < max_version (null = no upper bound)",
+    "public_poc": "optional curated map of public exploit references (e.g. {'metasploit': 'module/path'}); absent means 'not curated', NOT 'no PoC exists'"
+  },
+  "entries": [
+    {
+      "cve": "CVE-2014-0160",
+      "name": "Heartbleed",
+      "product_match": [
+        "openssl"
+      ],
+      "min_version": "1.0.1",
+      "max_version": "1.0.1g",
+      "severity": "critical",
+      "description": "OpenSSL TLS heartbeat extension out-of-bounds read allows remote attackers to read process memory (private keys, session data).",
+      "remediation": "Upgrade to OpenSSL 1.0.1g or later and rotate all certificates/keys.",
+      "public_poc": {
+        "metasploit": "auxiliary/scanner/ssl/openssl_heartbleed"
+      }
+    },
+    {
+      "cve": "CVE-2011-2523",
+      "name": "vsftpd 2.3.4 backdoor",
+      "product_match": [
+        "vsftpd"
+      ],
+      "min_version": "2.3.4",
+      "max_version": "2.3.5",
+      "severity": "critical",
+      "description": "vsftpd 2.3.4 as distributed from a compromised source contains a backdoor triggered by a ':)' smiley in the username, granting a remote shell on port 6200.",
+      "remediation": "Upgrade to a clean vsftpd build >= 2.3.5 from an official source.",
+      "public_poc": {
+        "metasploit": "exploit/unix/ftp/vsftpd_234_backdoor"
+      }
+    },
+    {
+      "cve": "CVE-2018-15473",
+      "name": "OpenSSH user enumeration",
+      "product_match": [
+        "openssh"
+      ],
+      "min_version": null,
+      "max_version": "7.8",
+      "severity": "medium",
+      "description": "OpenSSH before 7.8 allows remote attackers to enumerate valid usernames via a timing/behavioral difference during authentication.",
+      "remediation": "Upgrade to OpenSSH 7.8 or later."
+    },
+    {
+      "cve": "CVE-2021-41773",
+      "name": "Apache HTTP Server path traversal / RCE",
+      "product_match": [
+        "apache httpd",
+        "apache"
+      ],
+      "min_version": "2.4.49",
+      "max_version": "2.4.50",
+      "severity": "critical",
+      "description": "Path traversal in Apache HTTP Server 2.4.49 allows mapping URLs to files outside the document root; combined with mod_cgi can lead to RCE.",
+      "remediation": "Upgrade to Apache HTTP Server 2.4.51 or later."
+    },
+    {
+      "cve": "CVE-2021-23017",
+      "name": "nginx resolver off-by-one",
+      "product_match": [
+        "nginx"
+      ],
+      "min_version": null,
+      "max_version": "1.20.1",
+      "severity": "high",
+      "description": "Off-by-one heap write in nginx's DNS resolver, triggerable via crafted DNS responses, can lead to memory corruption.",
+      "remediation": "Upgrade to nginx 1.20.1 / 1.21.0 or later."
+    },
+    {
+      "cve": "CVE-2015-3306",
+      "name": "ProFTPD mod_copy RCE",
+      "product_match": [
+        "proftpd"
+      ],
+      "min_version": null,
+      "max_version": "1.3.5a",
+      "severity": "critical",
+      "description": "ProFTPD's mod_copy module allows unauthenticated remote attackers to copy files anywhere on the filesystem via SITE CPFR/CPTO, enabling RCE.",
+      "remediation": "Upgrade to ProFTPD 1.3.5b or later, or disable mod_copy.",
+      "public_poc": {
+        "metasploit": "exploit/unix/ftp/proftpd_modcopy_exec"
+      }
+    },
+    {
+      "cve": "CVE-2017-7494",
+      "name": "SambaCry",
+      "product_match": [
+        "samba",
+        "smbd"
+      ],
+      "min_version": "3.5.0",
+      "max_version": "4.6.4",
+      "severity": "critical",
+      "description": "Samba allows a malicious client to upload a shared library to a writable share and cause the server to load it, resulting in RCE.",
+      "remediation": "Upgrade to Samba 4.6.4, 4.5.10, or 4.4.14 (or later) per branch.",
+      "public_poc": {
+        "metasploit": "exploit/linux/samba/is_known_pipename"
+      }
+    },
+    {
+      "cve": "CVE-2019-10149",
+      "name": "Exim 'Return of the WIZard'",
+      "product_match": [
+        "exim"
+      ],
+      "min_version": "4.87",
+      "max_version": "4.92",
+      "severity": "critical",
+      "description": "Exim before 4.92 has a remote command execution flaw reachable under certain non-default configurations via crafted recipient addresses.",
+      "remediation": "Upgrade to Exim 4.92 or later."
+    },
+    {
+      "cve": "CVE-2018-5740",
+      "name": "BIND assertion failure (deny-answer-aliases / allow-query-cache)",
+      "product_match": [
+        "bind",
+        "isc bind"
+      ],
+      "min_version": null,
+      "max_version": "9.11.3",
+      "severity": "high",
+      "description": "BIND servers with deny-answer-aliases configured can crash due to a REQUIRE assertion failure when processing crafted responses.",
+      "remediation": "Upgrade to BIND 9.11.3 or later."
+    },
+    {
+      "cve": "CVE-2020-1938",
+      "name": "Ghostcat (Tomcat AJP)",
+      "product_match": [
+        "tomcat",
+        "apache tomcat"
+      ],
+      "min_version": null,
+      "max_version": "9.0.31",
+      "severity": "critical",
+      "description": "The Tomcat AJP connector allows reading/including arbitrary files on the server, and can lead to RCE if file uploads are permitted.",
+      "remediation": "Upgrade Tomcat and disable/restrict the AJP connector if unused."
+    },
+    {
+      "cve": "CVE-2018-1000861",
+      "name": "Jenkins CLI RCE via Stapler",
+      "product_match": [
+        "jenkins"
+      ],
+      "min_version": null,
+      "max_version": "2.138",
+      "severity": "critical",
+      "description": "Jenkins' Stapler web framework allows crafted URLs to access internal methods, enabling unauthenticated RCE in several reported chains.",
+      "remediation": "Upgrade Jenkins to 2.138 (LTS 2.121.3) or later.",
+      "public_poc": {
+        "metasploit": "exploit/multi/http/jenkins_metaprogramming"
+      }
+    },
+    {
+      "cve": "CVE-2022-24834",
+      "name": "Redis Lua sandbox escape (cjson heap overflow)",
+      "product_match": [
+        "redis"
+      ],
+      "min_version": null,
+      "max_version": "7.0.0",
+      "severity": "critical",
+      "description": "A heap overflow in Redis's bundled Lua cjson library can be triggered via the EVAL command, leading to RCE on the Redis server.",
+      "remediation": "Upgrade to a patched Redis release (6.2.7, 7.0.0, or later per branch) or disable scripting (EVAL) for untrusted clients."
+    },
+    {
+      "cve": "CVE-2012-1823",
+      "name": "PHP-CGI query string RCE",
+      "product_match": [
+        "php"
+      ],
+      "min_version": null,
+      "max_version": "5.4.2",
+      "severity": "critical",
+      "description": "PHP configured via CGI mishandles query strings, allowing attackers to pass arbitrary command-line arguments to the PHP interpreter.",
+      "remediation": "Upgrade PHP to 5.4.2/5.3.12 or later and avoid running PHP directly via php-cgi.",
+      "public_poc": {
+        "metasploit": "exploit/multi/http/php_cgi_arg_injection"
+      }
+    },
+    {
+      "cve": "CVE-2017-7269",
+      "name": "IIS 6.0 WebDAV ScStoragePathFromUrl buffer overflow",
+      "product_match": [
+        "microsoft iis httpd",
+        "iis"
+      ],
+      "min_version": "6.0",
+      "max_version": "6.1",
+      "severity": "critical",
+      "description": "IIS 6.0's WebDAV service has a buffer overflow in ScStoragePathFromUrl reachable via a crafted PROPFIND request, allowing RCE.",
+      "remediation": "Decommission IIS 6.0 (EOL) or disable WebDAV; migrate to a supported IIS version.",
+      "public_poc": {
+        "metasploit": "exploit/windows/iis/iis_webdav_scstoragepathfromurl"
+      }
+    },
+    {
+      "cve": "CVE-2021-44228",
+      "name": "Log4Shell",
+      "product_match": [
+        "log4j"
+      ],
+      "min_version": "2.0",
+      "max_version": "2.15.0",
+      "severity": "critical",
+      "description": "Apache Log4j2 JNDI lookup feature allows remote code execution via crafted log messages containing attacker-controlled JNDI lookups.",
+      "remediation": "Upgrade to Log4j 2.17.1 or later; if upgrading isn't possible, remove the JndiLookup class.",
+      "public_poc": {
+        "metasploit": "exploit/multi/http/log4shell_header_injection"
+      }
+    }
+  ]
+}

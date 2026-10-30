@@ -1,0 +1,120 @@
+{
+  "version": "1.0.0",
+  "scan_defaults": {
+    "ports": "1-1024,3306,3389,5432,5900,6379,8080,8443,8888,9200,27017",
+    "timeout": 30,
+    "max_retries": 3,
+    "concurrency": 10,
+    "rate_limit": 100,
+    "scan_types": ["port", "service", "os", "vuln", "ssl", "web"],
+    "max_cidr_hosts": 256
+  },
+  "nmap": {
+    "arguments": "-sV -sC -O --script=default,vuln",
+    "timing": "T4",
+    "output_format": "xml",
+    "timeout": 300
+  },
+  "masscan": {
+    "rate": 1000,
+    "ports": "0-65535"
+  },
+  "web": {
+    "user_agent": "VulnForge/1.0.0 Security Scanner",
+    "follow_redirects": true,
+    "max_redirects": 5,
+    "crawl_depth": 3,
+    "check_headers": true,
+    "check_cookies": true
+  },
+  "ssl": {
+    "check_expiry": true,
+    "expiry_warning_days": 30,
+    "check_protocols": ["SSLv2", "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"],
+    "check_ciphers": true,
+    "check_certificate_chain": true
+  },
+  "reporting": {
+    "output_dir": "reports",
+    "formats": ["html", "json", "txt"],
+    "include_screenshots": false,
+    "severity_colors": {
+      "critical": "#dc2626",
+      "high": "#ea580c",
+      "medium": "#d97706",
+      "low": "#65a30d",
+      "info": "#0891b2"
+    }
+  },
+  "plugins": {
+    "enabled": true,
+    "dir": "plugins",
+    "auto_load": true,
+    "dns_recon": {
+      "crtsh": true
+    }
+  },
+  "notifications": {
+    "enabled": false,
+    "min_severity": "high",
+    "webhooks": [
+      {"name": "team-slack", "type": "slack", "url_env": "VULNFORGE_SLACK_WEBHOOK"}
+    ]
+  },
+  "cve_matcher": {
+    "enabled": true,
+    "db_path": "data/cve_db.json",
+    "min_confidence": "medium",
+    "feed_path": "data/cve_feed.json"
+  },
+  "history": {
+    "enabled": true,
+    "db_path": "reports/history.db"
+  },
+  "profiles": {
+    "quick": {
+      "scan_types": ["port", "ssl"],
+      "ports": "21-23,25,53,80,110,143,443,445,3306,3389,8080,8443",
+      "nmap_arguments": "-sV -T4",
+      "web_sensitive_paths": false
+    },
+    "balanced": {
+      "scan_types": ["port", "service", "ssl", "web"],
+      "ports": "1-1024,3306,3389,5432,5900,6379,8080,8443,8888,9200,27017",
+      "nmap_arguments": "-sV -sC",
+      "web_sensitive_paths": true
+    },
+    "thorough": {
+      "scan_types": ["port", "service", "os", "vuln", "ssl", "web"],
+      "ports": "1-65535",
+      "nmap_arguments": "-sV -sC -O --script=default,vuln",
+      "web_sensitive_paths": true
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "logs/vulnforge.log",
+    "max_size_mb": 10,
+    "backup_count": 5
+  },
+  "authorization": {
+    "require_confirmation": true,
+    "log_all_scans": true,
+    "allowed_ranges": [],
+    "blocked_ranges": [
+      "0.0.0.0/8",
+      "100.64.0.0/10",
+      "169.254.0.0/16",
+      "198.18.0.0/15",
+      "198.51.100.0/24",
+      "203.0.113.0/24",
+      "224.0.0.0/4",
+      "240.0.0.0/4"
+    ],
+    "audit": {
+      "enabled": true,
+      "db_path": "reports/audit.db",
+      "actor": null
+    }
+  }
+}

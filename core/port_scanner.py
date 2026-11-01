@@ -47,7 +47,13 @@ class PortScanner:
 
         ports = self.scan_defaults.get("ports", "1-1024")
         timing = self.nmap_cfg.get("timing", "T4")
-        args = self.nmap_cfg.get("arguments", "-sV -sC -O --script=default,vuln")
+        # -Pn: skip host-discovery ping and treat the target as up. Without it,
+        # a host that blocks ICMP/the discovery probes (common behind a CDN,
+        # load balancer, or firewall) gets marked "down" and the whole port
+        # scan is skipped -- indistinguishable from "no open ports" in the
+        # result. Authorization is already confirmed by this point, so there's
+        # no downside to always probing rather than trusting host discovery.
+        args = self.nmap_cfg.get("arguments", "-Pn -sV -sC -O --script=default,vuln")
 
         cmd = [
             "nmap",

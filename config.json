@@ -10,7 +10,7 @@
     "max_cidr_hosts": 256
   },
   "nmap": {
-    "arguments": "-sV -sC -O --script=default,vuln",
+    "arguments": "-Pn -sV -sC -O --script=default,vuln",
     "timing": "T4",
     "output_format": "xml",
     "timeout": 300
@@ -112,19 +112,19 @@
     "quick": {
       "scan_types": ["port", "ssl"],
       "ports": "21-23,25,53,80,110,143,443,445,3306,3389,8080,8443",
-      "nmap_arguments": "-sV -T4",
+      "nmap_arguments": "-Pn -sV -T4",
       "web_sensitive_paths": false
     },
     "balanced": {
       "scan_types": ["port", "service", "ssl", "web"],
       "ports": "1-1024,3306,3389,5432,5900,6379,8080,8443,8888,9200,27017",
-      "nmap_arguments": "-sV -sC",
+      "nmap_arguments": "-Pn -sV -sC",
       "web_sensitive_paths": true
     },
     "thorough": {
       "scan_types": ["port", "service", "os", "vuln", "ssl", "web"],
       "ports": "1-65535",
-      "nmap_arguments": "-sV -sC -O --script=default,vuln",
+      "nmap_arguments": "-Pn -sV -sC -O --script=default,vuln",
       "web_sensitive_paths": true
     }
   },

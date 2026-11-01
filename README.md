@@ -18,8 +18,10 @@ allowed to test.
 ## Features
 
 ### Core scanning
-- **Port/service scanning** — nmap-backed (`-sV -sC -O --script=default,vuln`), with a
-  built-in async TCP-connect fallback when nmap isn't installed
+- **Port/service scanning** — nmap-backed (`-Pn -sV -sC -O --script=default,vuln`;
+  `-Pn` skips host-discovery ping so a target that blocks ICMP isn't
+  mistaken for "down" and silently skipped), with a built-in async
+  TCP-connect fallback when nmap isn't installed
 - **OS fingerprinting** — via nmap `-O`
 - **Web vulnerability scanning** — missing security headers, cookie flag issues
   (Secure/HttpOnly/SameSite), CORS misconfiguration, open redirect probing,

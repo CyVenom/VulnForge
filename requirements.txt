@@ -1,44 +1,21 @@
 # VulnForge - Production Security Scanner
-# Core scanning
-python-nmap==0.7.1
-scapy==2.5.0
+# Only lists packages actually imported somewhere in core/ or plugins/.
+# (nmap, if installed, is invoked as a subprocess directly -- the
+# python-nmap PyPI library isn't used.)
 
 # Async & networking
 aiohttp==3.10.11
-aiofiles==23.2.1
-asyncio-throttle==1.0.2
-
-# Web vulnerability scanning
-requests==2.31.0
-urllib3==2.2.1
-beautifulsoup4==4.12.3
-lxml==5.3.0
 
 # SSL/TLS analysis
-pyOpenSSL==24.1.0
 cryptography==42.0.8
-certifi==2024.6.2
-# ssl-checker removed (no valid PyPI release)
+
+# DNS reconnaissance (plugins/plugin_dns.py)
+dnspython==2.6.1
 
 # Reporting
-jinja2==3.1.4
 weasyprint==62.3
-markdown==3.6
 
 # CLI & UX
 rich==13.7.1
 click==8.1.7
-colorama==0.4.6
-tqdm==4.66.4
 # textual==0.86.3  # optional: enables `vulnforge.py tui` live dashboard
-
-# Data & config
-pyyaml==6.0.1
-python-dotenv==1.0.1
-jsonschema==4.22.0
-
-# Utilities
-python-dateutil==2.9.0
-validators==0.28.3
-ipaddress==1.0.23
-dnspython==2.6.1

@@ -25,10 +25,25 @@ class PortScanner:
         if not self._nmap_available:
             logger.warning("nmap not found in PATH — port scanning will be limited.")
 
+    @staticmethod
+    def _normalize_host(target: str) -> str:
+        """
+        nmap (and a raw TCP connect) take a bare hostname/IP, not a URL.
+        'https://example.com/path?q=1' resolves to nothing and silently
+        yields zero ports; strip scheme, path/query, and any port suffix,
+        matching the normalization every other module already does.
+        """
+        host = target.replace("https://", "").replace("http://", "").split("/")[0]
+        return host.split(":")[0] if host.count(":") <= 1 else host  # keep bracketed IPv6 intact
+
     async def scan(self, target: str) -> dict:
         """Run nmap scan asynchronously and return structured results."""
+        host = self._normalize_host(target)
+        if host != target:
+            logger.info(f"Normalized scan target {target!r} -> {host!r} for port scanning")
+
         if not self._nmap_available:
-            return await self._fallback_scan(target)
+            return await self._fallback_scan(host)
 
         ports = self.scan_defaults.get("ports", "1-1024")
         timing = self.nmap_cfg.get("timing", "T4")
@@ -41,7 +56,7 @@ class PortScanner:
             "--open",
             "-oX", "-",  # XML output to stdout
             *args.split(),
-            target,
+            host,
         ]
 
         logger.info(f"Running nmap: {' '.join(cmd)}")
@@ -68,7 +83,7 @@ class PortScanner:
                 logger.error(f"nmap returned code {proc_result.returncode}: {proc_result.stderr}")
                 return {"error": proc_result.stderr, "raw": proc_result.stdout}
 
-            return self._parse_nmap_xml(proc_result.stdout, target)
+            return self._parse_nmap_xml(proc_result.stdout, host)
 
         except subprocess.TimeoutExpired:
             logger.error("nmap scan timed out")

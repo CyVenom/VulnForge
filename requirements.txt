@@ -30,6 +30,7 @@ rich==13.7.1
 click==8.1.7
 colorama==0.4.6
 tqdm==4.66.4
+# textual==0.86.3  # optional: enables `vulnforge.py tui` live dashboard
 
 # Data & config
 pyyaml==6.0.1

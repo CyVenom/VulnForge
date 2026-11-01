@@ -193,23 +193,95 @@ Measured on scanme.nmap.org: risk 35 -> 20, 4 false/not-applicable findings remo
       ranges and the interactive confirm prompt on normal CLI scans remain.
 - [x] Audit events renamed `scheduled_scan_started` / `api_scan_started`.
 
+## Batch 15 - Active safe probes (XSS / SQLi / SSRF / command injection)
+
+- [x] `core/active_probes.py` - canary checks run against common query
+      parameters on the base URL: reflected-input (potential XSS, unescaped
+      marker reflection), SQL injection (error-based signature match, plus a
+      lower-confidence boolean-based length/status diff), SSRF (well-known
+      metadata/loopback targets, flagged only if their own response
+      signature is leaked back), and OS command injection (harmless
+      `echo <random-token>`, flagged only if the token comes back). Every
+      payload is inert - no real exploitation, no destructive commands.
+- [x] Wired into `web_scanner.py`'s normal scan pass; opt out with
+      `web.active_probes.enabled: false`. New finding categories (`xss`,
+      `sqli`, `ssrf`, `command_injection`) each have verification-playbook
+      steps in `core/verification_guide.py`.
+- [x] `tests/test_active_probes.py` - mock-server tests for all four probe types.
+
+## Batch 16 - Cloud storage misconfiguration scanning
+
+- [x] `plugins/plugin_cloud_storage.py` - derives candidate bucket/container
+      names from the target's hostname (plus common suffixes like
+      `-backup`/`-dev`/`-static`) and checks S3, Google Cloud Storage, and
+      Azure Blob's own public endpoints for anonymous listing access.
+      Never touches the target itself; read-only (list/read check), no
+      write/delete attempted. Opt out with `plugins.cloud_storage.enabled: false`.
+- [x] `cloud_storage` verification-playbook category (AWS/gsutil/az CLI cross-check).
+
+## Batch 17 - Directory/file brute-forcing with external wordlists
+
+- [x] `core/dir_bruteforce.py` - probes a wordlist of paths (bounded by
+      `max_concurrency`/`max_requests`), reusing the same soft-404/catch-all
+      baseline filter as the sensitive-path check so SPA routers that
+      answer 200 for everything don't flood the report. Accepts an external
+      wordlist via `web.dir_bruteforce.wordlist_path` (e.g. SecLists) or
+      falls back to the small built-in `data/wordlists/common.txt`.
+- [x] Off by default (`web.dir_bruteforce.enabled: false`) - noisier and
+      more request-heavy than the fixed sensitive-path list, so it's opt-in.
+- [x] `tests/test_dir_bruteforce.py`.
+
+## Batch 18 - Default credential checker (opt-in, explicit authorization)
+
+- [x] `core/default_creds.py` - tries a short curated list of default/common
+      credential pairs against HTTP Basic Auth and FTP. Requires **both**
+      `credentials.enabled: true` in config.json **and** the new
+      `--allow-credential-checks` CLI flag on that specific run - neither
+      alone starts it, so a credential attempt is never a surprise. A
+      successful login is reported at `critical` severity; nothing further
+      is read or written through that session.
+- [x] `tests/test_default_creds.py`.
+
+## Batch 19 - Network/host discovery sweep before per-host scan
+
+- [x] `core/host_discovery.py` - a portable alive-check (OS `ping` +
+      TCP-connect against common ports) ahead of a full scan, so time
+      isn't spent running every module against hosts that never answer.
+- [x] `--host-discovery` flag on `scan_cmd` - sweeps all resolved targets
+      (most useful with a CIDR range or `--targets-file`) and skips any
+      that don't respond, before scanning the rest.
+- [x] `tests/test_host_discovery.py`.
+
+## Batch 20 - Jira ticketing provider
+
+- [x] `core/ticketing_jira.py` - same dry-run-by-default, dedup-by-key,
+      evidence-excluded-unless-opted-in design as the GitHub Issues sync,
+      targeting Jira Cloud's REST API (basic auth via email + API token,
+      both from environment variables). Closing posts a comment and walks
+      the issue's own transition list for one matching
+      `ticketing.jira.done_transition_names`.
+- [x] `vulnforge.py tickets --provider jira|github` (default: `github`, or
+      `ticketing.provider` in config.json).
+
+## Batch 21 - Interactive TUI dashboard
+
+- [x] `core/tui.py` (Textual, optional dependency) - a live-refreshing
+      terminal dashboard over `reports/history.db`: a table of recent scans
+      across all targets, and the selected row's risk trend
+      (sparkline/direction/new-resolved-since-previous). Read-only.
+- [x] `vulnforge.py tui` - degrades to a clear error message (not a crash)
+      if `textual` isn't installed; `pip install textual` to enable it.
+
 ## Backlog — not yet implemented (future batches)
 
 ### Scanning engines
-- [ ] Active SQLi/XSS/SSRF/command-injection safe probes
 - [ ] CMS plugin/theme vulnerability DB (fingerprinting itself is done)
-- [ ] Directory/file brute-forcing with external wordlists
-- [ ] Cloud storage misconfig scanning (S3/GCS/Azure Blob)
-- [ ] Network/host discovery sweep (ARP/ICMP) before per-host scan
-- [ ] Default credential checker (opt-in, explicit authorization required)
 
 ### Reporting & integration
 - [ ] Email report delivery
-- [ ] Jira ticketing provider (GitHub Issues is done)
 
 ### Scale & orchestration
 - [ ] Distributed scanning (queue/worker model)
-- [ ] Interactive TUI live dashboard (Textual)
 
 ---
 *Updated as batches land. Each `[x]` item has corresponding code in the repo —

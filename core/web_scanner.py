@@ -16,6 +16,8 @@ from urllib.parse import urlparse, urljoin
 
 import aiohttp
 
+from .active_probes import ActiveProbes
+from .dir_bruteforce import DirBruteforce
 from .web_fingerprint import check_cms, check_graphql
 from .web_validators import (
     SENSITIVE_CHECKS, check_sensitive, find_stack_trace, fingerprint,
@@ -78,6 +80,8 @@ class WebScanner:
         self.web_cfg = config.get("web", {})
         self.timeout = aiohttp.ClientTimeout(total=self.web_cfg.get("timeout", 15))
         self.user_agent = self.web_cfg.get("user_agent", "VulnForge/1.0.0")
+        self.active_probes = ActiveProbes(config)
+        self.dir_bruteforce = DirBruteforce(config)
 
     async def scan(self, target: str) -> dict:
         """Run all web checks against target."""
@@ -131,9 +135,12 @@ class WebScanner:
                 self._check_csp_quality(response_data, findings),
                 check_graphql(session, base_url, findings),
                 check_cms(session, base_url, response_data, findings),
+                self.active_probes.run(session, base_url, findings),
             ]
             if self.web_cfg.get("check_sensitive_paths", True):
                 tasks.append(self._check_sensitive_paths(session, base_url, findings))
+            if self.dir_bruteforce.enabled:
+                tasks.append(self.dir_bruteforce.run(session, base_url, findings))
 
             await asyncio.gather(*tasks, return_exceptions=True)
 

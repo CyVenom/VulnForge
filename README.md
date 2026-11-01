@@ -36,6 +36,17 @@ allowed to test.
   exposure, WordPress/Drupal/Joomla detection with version and user-enumeration checks
 - **DNS reconnaissance** — SPF/DMARC checks, zone transfer testing, subdomain
   discovery (brute-force list + passive crt.sh Certificate Transparency lookup)
+- **Active safe probes** — canary checks for reflected XSS, SQL injection
+  (error- and boolean-based), SSRF (metadata/loopback targets), and OS
+  command injection, all with inert payloads (`web.active_probes`)
+- **Cloud storage misconfiguration scanning** — public S3/GCS/Azure Blob
+  bucket discovery from the target's own name (`plugins/plugin_cloud_storage.py`)
+- **Directory/file brute-forcing** — external-wordlist-capable, opt-in
+  (`web.dir_bruteforce`), reusing the catch-all/soft-404 baseline filter
+- **Default credential checker** — HTTP Basic/FTP, opt-in and requires
+  explicit per-run authorization (`--allow-credential-checks`)
+- **Host discovery sweep** — portable ping/TCP alive-check before scanning
+  a CIDR range or target file (`--host-discovery`)
 - **Plugin system** — drop a `plugin_*.py` file in `plugins/` implementing
   `VulnForgePlugin` and it's auto-loaded and run concurrently with everything else
 
@@ -96,6 +107,13 @@ python vulnforge.py --targets-file targets.txt
 
 # CIDR range
 python vulnforge.py 192.168.1.0/28
+
+# Skip hosts that don't respond before scanning a range/file
+python vulnforge.py 192.168.1.0/24 --host-discovery
+
+# Active default-credential testing (HTTP Basic/FTP) -- requires BOTH this
+# flag and "credentials": {"enabled": true} in config.json
+python vulnforge.py app.example.com --allow-credential-checks
 
 # Scan profile preset (quick / balanced / thorough — see config.json)
 python vulnforge.py scanme.nmap.org --profile quick
@@ -170,21 +188,28 @@ python vulnforge.py verify VF-20260621-231716 --no-file # console only
 
 See `core/verification_guide.py` to add steps for a new finding category.
 
-### GitHub Issues
+### GitHub Issues / Jira
 
 ```json
-"ticketing": {"enabled": true, "repo": "owner/name", "token_env": "GITHUB_TOKEN",
-              "min_severity": "high", "labels": ["vulnforge"], "include_evidence": false}
+"ticketing": {"enabled": true, "provider": "github", "repo": "owner/name",
+              "token_env": "GITHUB_TOKEN", "min_severity": "high",
+              "labels": ["vulnforge"], "include_evidence": false,
+              "jira": {"base_url": "https://yourteam.atlassian.net", "project_key": "SEC",
+                       "email_env": "JIRA_EMAIL", "token_env": "JIRA_API_TOKEN"}}
 ```
 
 ```bash
-python vulnforge.py tickets VF-20261027-071623           # dry run
-python vulnforge.py tickets VF-20261027-071623 --apply   # create / close issues
+python vulnforge.py tickets VF-20261027-071623                     # dry run (GitHub by default)
+python vulnforge.py tickets VF-20261027-071623 --apply              # create / close issues
+python vulnforge.py tickets VF-20261027-071623 --provider jira --apply   # same, via Jira
 ```
 
-Re-running is safe: findings already tracked are skipped, and issues for
-findings that disappeared are closed with a comment. Evidence is left out of
-issue bodies by default, since repos are often more visible than scan reports.
+Re-running is safe: findings already tracked are skipped, and tickets for
+findings that disappeared are closed (a comment on GitHub; a comment plus a
+"Done"-like transition on Jira). Evidence is left out of ticket bodies by
+default, since trackers are often more visible than scan reports. Jira auth
+is email + API token (Atlassian Cloud), both from environment variables
+named by `ticketing.jira.email_env`/`token_env`.
 
 ### REST API
 
@@ -235,6 +260,52 @@ Types: `slack`, `discord`, `generic` (raw JSON summary). Only https URLs are
 accepted, and only the risk score, counts and finding titles at or above
 `min_severity` are sent; evidence never leaves the machine.
 
+### Active probes, cloud storage, brute-forcing, default credentials
+
+```json
+"web": {
+  "active_probes": {"enabled": true, "max_params": 8},
+  "dir_bruteforce": {"enabled": false, "wordlist_path": null, "max_concurrency": 10, "max_requests": 2000}
+},
+"plugins": {"cloud_storage": {"enabled": true}},
+"credentials": {"enabled": false, "http_basic_pairs": [["admin", "admin"]], "ftp_pairs": [["anonymous", "anonymous"]]}
+```
+
+- **Active probes** (XSS/SQLi/SSRF/command injection) run by default as
+  part of the normal web scan — every payload is inert (a marker, a single
+  quote, a well-known metadata URL, a harmless `echo`), never destructive.
+- **Cloud storage** bucket discovery runs by default as a plugin; it only
+  talks to the cloud providers' own public endpoints, never the target.
+- **Directory brute-forcing** is opt-in (`web.dir_bruteforce.enabled: true`)
+  since it's far more request-heavy than the fixed sensitive-path list;
+  point `wordlist_path` at any external wordlist (e.g. SecLists) or rely on
+  the built-in `data/wordlists/common.txt`.
+- **Default credential checks** need **both** `credentials.enabled: true`
+  *and* `--allow-credential-checks` on the command line — this is active
+  authentication testing, so it never runs from config alone.
+
+### Host discovery
+
+```bash
+python vulnforge.py 10.0.0.0/24 --host-discovery --targets-file hosts.txt
+```
+
+Before scanning, pings (OS `ping`) and TCP-connects (common ports) every
+resolved target; hosts that answer neither are skipped. A portable
+best-effort filter, not a replacement for the per-host port scan that follows.
+
+### Live dashboard
+
+```bash
+pip install textual
+python vulnforge.py tui
+```
+
+A read-only, auto-refreshing terminal dashboard over `reports/history.db`:
+recent scans across every target, and the selected row's risk trend. Press
+`r` to refresh now, `q` to quit. Optional dependency — `tui` gives a clear
+error instead of crashing if `textual` isn't installed.
+
 ### Tests
 
 ```bash
@@ -269,15 +340,23 @@ core/
   verification_guide.py   Per-category manual verification steps
   audit.py                Authorization audit trail (SQLite, separate from scan history)
   ticketing.py            GitHub Issues sync (dry-run by default, deduplicated)
+  ticketing_jira.py        Jira Cloud sync (same contract as ticketing.py)
   api_server.py           REST API (token auth, localhost-only)
   trends.py               Risk trend + finding persistence from scan history
   scheduler.py            Recurring scans from config.json
   notifier.py             Slack/Discord/generic webhook scan-completion summaries
+  active_probes.py        Safe XSS/SQLi/SSRF/command-injection canary checks
+  dir_bruteforce.py        Wordlist-based path brute-forcing (opt-in)
+  default_creds.py         Default-credential checker (opt-in, HTTP Basic/FTP)
+  host_discovery.py        Ping/TCP alive-check sweep ahead of a full scan
+  tui.py                   Live Textual dashboard over scan history (optional dep)
 plugins/
   plugin_dns.py           DNS recon (SPF/DMARC/zone transfer/subdomains)
   plugin_http_methods.py  HTTP method / verb tampering checks
+  plugin_cloud_storage.py  Public S3/GCS/Azure Blob bucket discovery
 data/
   cve_db.json             Local curated CVE dataset used by cve_matcher
+  wordlists/common.txt    Built-in directory/file brute-force wordlist
 reports/               Generated scan reports + audit.db (gitignored)
 logs/                  Scan logs (gitignored)
 ```

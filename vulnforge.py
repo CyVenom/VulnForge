@@ -183,6 +183,16 @@ def cli():
     help="Skip the interactive authorization confirmation (use only in automated pipelines you control).",
 )
 @click.option(
+    "--allow-credential-checks", is_flag=True, default=False,
+    help="Explicitly authorize active default-credential testing (HTTP Basic/FTP) for this run. "
+         "Also requires credentials.enabled=true in config.json; neither alone is enough.",
+)
+@click.option(
+    "--host-discovery", is_flag=True, default=False,
+    help="Before scanning, ping-sweep resolved targets (ICMP + common TCP ports) and skip any "
+         "that don't answer. Most useful with a CIDR range or --targets-file.",
+)
+@click.option(
     "--dry-run", is_flag=True, default=False,
     help="Resolve targets and scan modules, print what would run, and exit without scanning.",
 )
@@ -194,7 +204,8 @@ def cli():
     "--verbose", "-v", is_flag=True, default=False,
     help="Enable verbose/debug logging.",
 )
-def scan_cmd(target, targets_file, config, scan_type, output, ports, profile, no_auth_check, dry_run, no_verify, verbose):
+def scan_cmd(target, targets_file, config, scan_type, output, ports, profile, no_auth_check,
+             allow_credential_checks, host_discovery, dry_run, no_verify, verbose):
     """
     Run a security scan (this is VulnForge's default command).
 
@@ -243,6 +254,21 @@ def scan_cmd(target, targets_file, config, scan_type, output, ports, profile, no
     active_types = list(scan_type) or None
     output_formats = [f.lower().replace("markdown", "md") for f in output]
 
+    if host_discovery:
+        from core.host_discovery import sweep
+
+        console.print(f"[cyan]Host discovery sweep — checking {len(targets)} target(s)...[/cyan]")
+        alive_map = asyncio.run(sweep(targets))
+        alive = [t for t in targets if alive_map.get(t)]
+        dead = [t for t in targets if not alive_map.get(t)]
+        for t in dead:
+            console.print(f"  [dim]→ {t}: no response (ICMP + common TCP ports) — skipping[/dim]")
+        console.print(f"[cyan]{len(alive)}/{len(targets)} target(s) responded; {len(dead)} skipped.[/cyan]")
+        targets = alive
+        if not targets:
+            console.print("[yellow]No targets responded to host discovery — nothing to scan.[/yellow]")
+            sys.exit(0)
+
     if dry_run:
         console.print(f"[bold cyan]Dry run — {len(targets)} target(s) resolved:[/bold cyan]")
         for t in targets:
@@ -275,6 +301,7 @@ def scan_cmd(target, targets_file, config, scan_type, output, ports, profile, no
                         scan_types=active_types,
                         output_formats=output_formats,
                         skip_auth_check=no_auth_check,
+                        allow_credential_checks=allow_credential_checks,
                     )
                 )
                 worst_risk = max(worst_risk, result.summary.get("risk_score", 0))
@@ -620,25 +647,36 @@ def serve_cmd(host, port, allow_remote, max_concurrent, config):
 
 @cli.command("tickets", context_settings={"help_option_names": ["-h", "--help"]})
 @click.argument("scan_id")
-@click.option("--apply", is_flag=True, help="Actually create/close GitHub issues (default is a dry run).")
+@click.option("--apply", is_flag=True, help="Actually create/close tickets (default is a dry run).")
+@click.option(
+    "--provider", type=click.Choice(["github", "jira"], case_sensitive=False), default=None,
+    help="Ticketing backend. Default: ticketing.provider in config.json, or 'github'.",
+)
 @click.option("--config", "-c", default="config.json", show_default=True, help="Path to config.json")
-def tickets_cmd(scan_id, apply, config):
+def tickets_cmd(scan_id, apply, provider, config):
     """
-    Sync a recorded scan's findings to GitHub Issues: one issue per finding at
-    or above ticketing.min_severity, and close issues whose finding is gone.
-    Dry run unless --apply is given.
+    Sync a recorded scan's findings to GitHub Issues or Jira: one ticket per
+    finding at or above ticketing.min_severity, and close tickets whose
+    finding is gone. Dry run unless --apply is given.
     """
     from core.history import ScanHistory
-    from core.ticketing import GitHubTicketing, TicketingError
 
     cfg = load_config(config)
     result = ScanHistory(cfg).get_result(scan_id)
     if result is None:
         raise click.ClickException(f"Scan {scan_id!r} not found in history.")
 
+    backend = (provider or cfg.get("ticketing", {}).get("provider") or "github").lower()
+    if backend == "jira":
+        from core.ticketing_jira import JiraTicketing, TicketingError
+        ticketer = JiraTicketing(cfg)
+    else:
+        from core.ticketing import GitHubTicketing, TicketingError
+        ticketer = GitHubTicketing(cfg)
+
     try:
         report = asyncio.run(
-            GitHubTicketing(cfg).sync(scan_id, result["target"], result.get("findings", []), apply=apply)
+            ticketer.sync(scan_id, result["target"], result.get("findings", []), apply=apply)
         )
     except TicketingError as exc:
         raise click.ClickException(str(exc))
@@ -656,6 +694,24 @@ def tickets_cmd(scan_id, apply, config):
         console.print(f"[red]{e}[/red]")
     if report["errors"]:
         sys.exit(1)
+
+
+@cli.command("tui", context_settings={"help_option_names": ["-h", "--help"]})
+@click.option("--refresh", default=10.0, show_default=True, help="Seconds between automatic refreshes.")
+@click.option("--config", "-c", default="config.json", show_default=True, help="Path to config.json")
+def tui_cmd(refresh, config):
+    """
+    Launch a live terminal dashboard (Textual) over the local scan history:
+    recent scans across all targets, plus the risk trend for whichever row
+    is selected. Read-only; requires 'pip install textual'.
+    """
+    from core.tui import run_dashboard
+
+    cfg = load_config(config)
+    try:
+        run_dashboard(cfg, refresh_seconds=refresh)
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc))
 
 
 @cli.command("cve-update", context_settings={"help_option_names": ["-h", "--help"]})

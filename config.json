@@ -25,7 +25,18 @@
     "max_redirects": 5,
     "crawl_depth": 3,
     "check_headers": true,
-    "check_cookies": true
+    "check_cookies": true,
+    "active_probes": {
+      "enabled": true,
+      "max_params": 8
+    },
+    "dir_bruteforce": {
+      "enabled": false,
+      "wordlist_path": null,
+      "extensions": [""],
+      "max_concurrency": 10,
+      "max_requests": 2000
+    }
   },
   "ssl": {
     "check_expiry": true,
@@ -52,6 +63,9 @@
     "auto_load": true,
     "dns_recon": {
       "crtsh": true
+    },
+    "cloud_storage": {
+      "enabled": true
     }
   },
   "notifications": {
@@ -66,6 +80,29 @@
     "db_path": "data/cve_db.json",
     "min_confidence": "medium",
     "feed_path": "data/cve_feed.json"
+  },
+  "ticketing": {
+    "enabled": false,
+    "provider": "github",
+    "repo": "owner/name",
+    "token_env": "GITHUB_TOKEN",
+    "min_severity": "high",
+    "labels": ["vulnforge"],
+    "include_evidence": false,
+    "jira": {
+      "base_url": "",
+      "project_key": "",
+      "issue_type": "Bug",
+      "email_env": "JIRA_EMAIL",
+      "token_env": "JIRA_API_TOKEN",
+      "done_transition_names": ["Done", "Closed", "Resolve"]
+    }
+  },
+  "credentials": {
+    "enabled": false,
+    "timeout": 8,
+    "http_basic_pairs": [["admin", "admin"], ["admin", "password"], ["admin", "123456"], ["admin", ""], ["root", "root"]],
+    "ftp_pairs": [["anonymous", "anonymous"], ["anonymous", ""], ["ftp", "ftp"]]
   },
   "history": {
     "enabled": true,

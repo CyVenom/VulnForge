@@ -26,6 +26,7 @@ from .confidence import meets
 from .notifier import Notifier
 from .history import ScanHistory
 from .audit import AuditTrail
+from .default_creds import DefaultCredentialChecker
 
 logger = logging.getLogger("vulnforge.scanner")
 console = Console(highlight=False)
@@ -44,6 +45,7 @@ class ScanResult:
     ssl_analysis: dict = field(default_factory=dict)
     plugin_results: dict = field(default_factory=dict)
     cve_matches: list = field(default_factory=list)
+    credential_findings: list = field(default_factory=list)
     findings: list = field(default_factory=list)
     summary: dict = field(default_factory=dict)
     hidden_findings: int = 0
@@ -84,6 +86,7 @@ class VulnForgeScanner:
         self.notifier = Notifier(config)
         self.history = ScanHistory(config)
         self.audit = AuditTrail(config)
+        self.default_creds = DefaultCredentialChecker(config)
         self._setup_logging()
 
     def _setup_logging(self):
@@ -158,6 +161,7 @@ class VulnForgeScanner:
         scan_types: list[str] | None = None,
         output_formats: list[str] | None = None,
         skip_auth_check: bool = False,
+        allow_credential_checks: bool = False,
     ) -> ScanResult:
         """Run a full security scan against the target."""
 
@@ -240,6 +244,27 @@ class VulnForgeScanner:
             )
 
             await asyncio.gather(*tasks, return_exceptions=True)
+
+            if self.default_creds.enabled(allow_credential_checks):
+                cred_task_id = progress.add_task("[red]Default Credential Check...", total=None)
+                try:
+                    open_ports = {
+                        int(p) for p, d in result.port_scan.get("ports", {}).items()
+                        if d.get("state") == "open"
+                    }
+                    base_url = result.web_scan.get("base_url")
+                    result.credential_findings = await self.default_creds.check(
+                        target, base_url, open_ports, allow_credential_checks
+                    )
+                    progress.update(cred_task_id, description="[red]Default Credential Check [green]DONE[/green]")
+                except Exception as exc:
+                    logger.error(f"Default credential check error: {exc}", exc_info=True)
+                    progress.update(cred_task_id, description="[red]Default Credential Check [red]ERROR[/red]")
+            elif self.default_creds.config_enabled and not allow_credential_checks:
+                console.print(
+                    "[yellow]credentials.enabled is true in config but --allow-credential-checks "
+                    "was not passed — skipping default credential checks for this run.[/yellow]"
+                )
 
         result.end_time = datetime.now().isoformat()
         result.duration = round(time.time() - start, 2)
@@ -342,6 +367,9 @@ class VulnForgeScanner:
         for finding in result.cve_matches:
             findings.append({**finding, "source": "cve_matcher"})
 
+        for finding in result.credential_findings:
+            findings.append({**finding, "source": "default_creds"})
+
         for plugin_name, plugin_data in result.plugin_results.items():
             for finding in plugin_data.get("findings", []):
                 findings.append({**finding, "source": f"plugin:{plugin_name}"})
@@ -379,6 +407,7 @@ class VulnForgeScanner:
             "web_checks": result.web_scan.get("checks_performed", 0),
             "ssl_issues": len(result.ssl_analysis.get("findings", [])),
             "cve_matches": len(result.cve_matches),
+            "credential_findings": len(result.credential_findings),
             "plugins_run": len(result.plugin_results),
             "risk_score": self._calculate_risk_score(severity_counts),
         }

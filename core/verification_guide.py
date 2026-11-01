@@ -212,6 +212,90 @@ GUIDES: dict[str, dict] = {
             "editor → resend → inspect the response.",
         ],
     },
+    "xss": {
+        "tools": ["Browser DevTools", "Burp Suite (Repeater)"],
+        "steps": [
+            "Re-send the exact URL in 'evidence' and view-source the response — confirm "
+            "the marker appears unescaped (not as &lt;vfxss...&gt;).",
+            "Burp: Repeater → replace the marker with a real payload like "
+            "<script>alert(document.domain)</script> → render the response in Burp's "
+            "built-in browser to confirm actual script execution, not just reflection.",
+            "Check whether the reflection point is inside an HTML attribute, a <script> "
+            "block, or plain body text — the right payload differs by context.",
+        ],
+    },
+    "sqli": {
+        "tools": ["curl", "Burp Suite (Repeater)", "sqlmap"],
+        "steps": [
+            "curl -i '<evidence URL>'   — resend the single-quote or boolean payload and "
+            "confirm the error text / response-length delta reproduces.",
+            "Burp: Repeater → toggle between the '1'='1 and '1'='2' payloads → diff the "
+            "two responses directly in Burp's comparer.",
+            "sqlmap -u '<url>?<param>=1' -p <param>   — only against a target you're "
+            "authorized to actively exploit; confirms the injection and its type (error/boolean/time-based).",
+        ],
+    },
+    "ssrf": {
+        "tools": ["curl", "Burp Suite (Repeater)", "Collaborator / canary domain"],
+        "steps": [
+            "curl -i '<evidence URL>'   — resend and confirm the metadata/loopback "
+            "signature still appears in the response body.",
+            "Burp: Repeater → try other internal targets (http://localhost:<port>, "
+            "cloud-provider metadata IPs for AWS/GCP/Azure) via the same parameter.",
+            "For blind SSRF (no reflection): point the parameter at a Burp Collaborator "
+            "or similar canary URL and watch for an out-of-band DNS/HTTP callback.",
+        ],
+    },
+    "command_injection": {
+        "tools": ["curl", "Burp Suite (Repeater)"],
+        "steps": [
+            "curl -i '<evidence URL>'   — resend and confirm the echoed token still "
+            "appears in the response body.",
+            "Burp: Repeater → try the other shell metacharacters (;, |, `` ` ``, "
+            "$()) individually to map exactly which one the server doesn't sanitize.",
+            "Confirm impact scope by trying a harmless read-only command (e.g. "
+            "'id' or 'whoami' equivalent) — never a destructive command.",
+        ],
+    },
+    "dir_bruteforce": {
+        "tools": ["curl", "Browser"],
+        "steps": [
+            "curl -i https://<target><path>   — confirm the status/content-type still "
+            "matches what was recorded (brute-force hits can be stale).",
+            "Open the path in a browser to rule out a soft-404 / catch-all page that "
+            "slipped past the baseline comparison.",
+        ],
+    },
+    "cloud_storage": {
+        "tools": ["curl", "AWS CLI / gsutil / az storage"],
+        "steps": [
+            "curl -i '<evidence URL>'   — confirm the bucket still returns a public "
+            "listing (ListBucketResult / JSON array / EnumerationResults), not AccessDenied.",
+            "aws s3 ls s3://<bucket> --no-sign-request   (swap for gsutil ls / az "
+            "storage blob list for GCS/Azure) — confirms anonymous listing from the "
+            "provider's own CLI, independent of the raw HTTP check.",
+            "Do not attempt to write/delete objects without explicit authorization — "
+            "this check only confirms read exposure.",
+        ],
+    },
+    "default_credentials": {
+        "tools": ["curl", "Browser", "ftp client"],
+        "steps": [
+            "Re-attempt the exact credential pair named in 'evidence' manually against "
+            "the same service to rule out a transient fluke.",
+            "Check whether the account that logged in has any real privileges — a "
+            "default account with no access is a much lower-severity finding.",
+            "Only tested with your own explicit extra authorization for credential "
+            "testing — treat any successful login as sensitive and rotate it immediately.",
+        ],
+    },
+    "host_discovery": {
+        "tools": ["ping", "nmap"],
+        "steps": [
+            "ping -n 1 <host>  (or -c 1 on Linux/Mac) / nmap -sn <host>   — confirm the "
+            "host-alive result independently; ICMP can be blocked while TCP ports answer, or vice versa.",
+        ],
+    },
     "port_scan": {
         "tools": ["nmap", "nc (netcat)", "searchsploit"],
         "steps": [

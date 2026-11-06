@@ -8,6 +8,10 @@ HTML/JSON/TXT/Markdown/SARIF/PDF reporting — built around an authorization-fir
 workflow so it refuses to run against targets you haven't confirmed you're
 allowed to test.
 
+**[Try the interactive demo](https://vulnforge-demo.vercel.app)** — walk through a scan step by step, built from real
+scan output. It runs no scans; the code for it is in
+[vulnforge-demo](https://github.com/CyVenom/vulnforge-demo), including a throwaway test server you can scan yourself.
+
 > ⚠️ **Authorized testing only.** Scanning systems without explicit permission
 > is illegal in most jurisdictions (CFAA, Computer Misuse Act, etc.). VulnForge
 > requires interactive authorization confirmation by default and blocks
@@ -407,3 +411,9 @@ batches, with what's implemented vs. planned.
 VulnForge is for authorized security testing, CTF competitions, and
 educational use only. You are responsible for obtaining explicit written
 authorization before scanning any system you do not own.
+
+## License
+
+VulnForge's code is released under the [MIT License](LICENSE). The license covers the code only: it does not
+give you permission to scan anyone else's systems, and you remain responsible for having that authorization.
+The CVE data it uses comes from the NVD and CISA KEV catalog.

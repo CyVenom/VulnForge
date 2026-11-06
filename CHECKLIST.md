@@ -272,6 +272,30 @@ Measured on scanme.nmap.org: risk 35 -> 20, 4 false/not-applicable findings remo
 - [x] `vulnforge.py tui` - degrades to a clear error message (not a crash)
       if `textual` isn't installed; `pip install textual` to enable it.
 
+## Batch 22 - Hardening and score fixes
+
+- [x] **Fixed:** the blocked-range check only inspected targets that were
+      literal IPs, so a hostname or URL resolving into a blocked range
+      (for example `169.254.169.254`) was allowed. New `core/target_guard.py`
+      extracts the host from names, `host:port`, URLs and bracketed IPv6,
+      resolves it, and checks every address (including IPv4-mapped IPv6).
+      The audit trail now records why a target was refused. An invalid entry
+      in `authorization.blocked_ranges` raises instead of being skipped.
+- [x] **Fixed:** a relative `plugins.dir` was resolved against the current
+      working directory, so running VulnForge inside any folder containing a
+      `plugins/` directory executed that folder's code. It is now resolved
+      against the install directory; absolute paths still work.
+- [x] **Changed:** risk score (`core/risk.py`) is unchanged up to 50 and
+      uses diminishing returns above it, instead of a flat cap at 100 that
+      made 15 highs and 150 highs identical. Scans scoring above 50 now read
+      lower than before (for example 10 highs: 70 -> 59); the CI threshold at
+      40 is unaffected. Scores already stored in history are not rewritten, so
+      trends that span this change will show a step for scans above 50.
+- [x] **Fixed:** a finding with a severity label the scorer did not know
+      raised `KeyError`; unknown labels now count as zero.
+- [x] `pytest.ini` sets `asyncio_default_fixture_loop_scope` (silences the
+      pytest-asyncio deprecation warning). 40 new tests (118 total).
+
 ## Backlog — not yet implemented (future batches)
 
 ### Scanning engines

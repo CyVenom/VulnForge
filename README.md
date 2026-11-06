@@ -56,7 +56,11 @@ allowed to test.
 - **Multi-target scanning** — single host, comma-separated list, CIDR range,
   or `--targets-file` with one target per line
 - Async parallel execution of all scan modules per target
-- Risk scoring (0–100) from weighted severity counts
+- Risk scoring (0–100) from weighted severity counts (critical 10, high 7,
+  medium 4, low 1). Up to 50 the score is the plain weighted sum; above 50
+  extra risk still counts but with diminishing returns, so a scan with 15
+  highs and one with 150 no longer both read 100. The CI exit threshold
+  (score 40) is unaffected.
 
 ### Reporting
 - HTML (dark-themed, self-contained), JSON, plain text
@@ -67,7 +71,12 @@ allowed to test.
 ### Safety / governance
 - Interactive authorization confirmation before any scan (skippable only with
   `--no-auth-check` for controlled pipelines)
-- Blocked IP range enforcement (documentation/reserved ranges) from config
+- Blocked IP range enforcement (documentation/reserved ranges) from config.
+  Hostnames and URLs are resolved and every address they point to is checked,
+  not just literal IPs, so a name that resolves into a blocked range is
+  refused (and recorded in the audit trail with the reason). DNS is resolved
+  once at check time, so this guards against mistakes, not DNS rebinding by a
+  hostile resolver
 - All scans logged (`logs/vulnforge.log`) when `authorization.log_all_scans` is set
 - Authorization audit trail (`core/audit.py`, separate SQLite DB from scan
   history) recording every confirm/decline, blocked-range hit,
@@ -338,6 +347,8 @@ core/
   cve_matcher.py          Offline CVE lookup against detected service versions
   report_generator.py    HTML/JSON/TXT/Markdown/SARIF/PDF report generation
   plugin_manager.py       Plugin discovery/loading/execution
+  target_guard.py         Resolves hosts/URLs and checks them against blocked ranges
+  risk.py                 Risk score from severity counts
   history.py              SQLite scan history + diff support
   verification_guide.py   Per-category manual verification steps
   audit.py                Authorization audit trail (SQLite, separate from scan history)
@@ -382,7 +393,9 @@ class MyPlugin(VulnForgePlugin):
 ```
 
 Drop the file in `plugins/` as `plugin_<name>.py` — it's auto-discovered on
-the next run.
+the next run. A relative `plugins.dir` is resolved inside the VulnForge
+install, never against the folder you ran the command from, because plugin
+files are executed. Use an absolute path to load plugins from elsewhere.
 
 ## Roadmap
 

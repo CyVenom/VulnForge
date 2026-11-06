@@ -4,7 +4,6 @@ __pycache__/
 core/__pycache__/
 plugins/__pycache__/
 
-.claude/
 .vscode/
 .final_snapshot/
 

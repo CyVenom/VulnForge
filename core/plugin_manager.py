@@ -16,6 +16,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("vulnforge.plugin_manager")
 
+# A relative plugins dir means "inside the VulnForge install", never "whatever
+# folder the command happened to be run from": plugin files are executed, so
+# loading them from the current directory would run code from any directory
+# you happen to be standing in.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 class VulnForgePlugin(ABC):
     """Base class for all VulnForge plugins."""
@@ -57,6 +63,8 @@ class PluginManager:
             return
 
         plugin_dir = Path(self.plugin_cfg.get("dir", "plugins"))
+        if not plugin_dir.is_absolute():
+            plugin_dir = PROJECT_ROOT / plugin_dir
         if not plugin_dir.exists():
             logger.info(f"Plugin directory {plugin_dir} not found — skipping.")
             return

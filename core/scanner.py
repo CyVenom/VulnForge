@@ -23,6 +23,8 @@ from .report_generator import ReportGenerator
 from .plugin_manager import PluginManager
 from .cve_matcher import CVEMatcher
 from .confidence import meets
+from .risk import risk_score
+from .target_guard import blocked_reason
 from .notifier import Notifier
 from .history import ScanHistory
 from .audit import AuditTrail
@@ -142,18 +144,14 @@ class VulnForgeScanner:
         self.audit.record("authorization_confirmed", target=target)
         return True
 
-    def _is_blocked(self, target: str) -> bool:
-        """Check if target falls within blocked IP ranges."""
-        import ipaddress
+    def _blocked_reason(self, target: str) -> str | None:
+        """Why target is blocked, or None. Resolves hostnames and URLs, not just raw IPs."""
         blocked = self.config.get("authorization", {}).get("blocked_ranges", [])
-        try:
-            addr = ipaddress.ip_address(target)
-            for blocked_range in blocked:
-                if addr in ipaddress.ip_network(blocked_range, strict=False):
-                    return True
-        except ValueError:
-            pass  # It's a hostname, not a raw IP — allow it through
-        return False
+        return blocked_reason(target, blocked)
+
+    def _is_blocked(self, target: str) -> bool:
+        """Check if target, or any address it resolves to, falls within blocked ranges."""
+        return self._blocked_reason(target) is not None
 
     async def scan(
         self,
@@ -167,9 +165,11 @@ class VulnForgeScanner:
 
         self.print_banner()
 
-        if self._is_blocked(target):
-            self.audit.record("blocked_range_denied", target=target)
-            raise ValueError(f"Target {target!r} is in a blocked/reserved IP range.")
+        # DNS resolution can block, so keep it off the event loop.
+        reason = await asyncio.to_thread(self._blocked_reason, target)
+        if reason:
+            self.audit.record("blocked_range_denied", target=target, detail=reason)
+            raise ValueError(f"Target {target!r} is in a blocked/reserved IP range ({reason}).")
 
         if not skip_auth_check:
             self._check_authorization(target)
@@ -413,9 +413,7 @@ class VulnForgeScanner:
         }
 
     def _calculate_risk_score(self, severity_counts: dict) -> int:
-        weights = {"critical": 10, "high": 7, "medium": 4, "low": 1, "info": 0}
-        raw = sum(weights[s] * c for s, c in severity_counts.items())
-        return min(100, raw)
+        return risk_score(severity_counts)
 
     def _print_summary(self, result: ScanResult, report_paths: list[str]):
         table = Table(title="Scan Summary", border_style="cyan")
